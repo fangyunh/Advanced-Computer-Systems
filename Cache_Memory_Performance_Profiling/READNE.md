@@ -16,6 +16,6 @@ The objective of this project is to gain deeper understanding of cache and memor
 
    relatively light computations such as multiplication)
 
-5. Timpact of TLB table miss ratio on the software speed performance (again, the software is supposed to
+5. The impact of TLB table miss ratio on the software speed performance (again, the software is supposed to
 
    execute relatively light computations such as multiplication)
