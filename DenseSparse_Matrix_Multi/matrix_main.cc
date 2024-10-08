@@ -28,9 +28,6 @@ int main(int argc, char* argv[]) {
     std::cout << "Cache Optimization: " << (options.enableOptimizations ? "Enabled" : "Disabled") << "\n";
     std::cout << "Time Taken: " << genDuration.count() << "s." << std::endl;
 
-    // Placeholder for performance measurement
-    // TODO: Measure and print performance metrics after implementing multiplication
-
     return 0;
 }
 

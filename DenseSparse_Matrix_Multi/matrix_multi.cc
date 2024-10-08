@@ -167,30 +167,67 @@ Matrix::generateRandomData()
     // Temporary storage for row-wise data
     std::vector<std::vector<std::pair<size_t, int>>> rows(n);
 
-    for (size_t i = 0; i < n; ++i) {
-        size_t nnzInRow = 0;
+    if (type == DENSE) {
+        // Calculate the total number of non-zero elements needed (95% of n^2)
+        size_t totalElements = n * n;
+        size_t nnzTotal = static_cast<size_t>(0.95 * totalElements);
+        size_t numZeros = totalElements - nnzTotal;
 
-        for (size_t j = 0; j < n; ++j) {
-            int value = 0;
-
-            if (type == DENSE) {
-                // For dense matrices, fill with random values
-                value = std::rand() % 10 + 1; // Random values between 1 and 10
-            } else {
-                // For sparse matrices, randomly decide if the element is non-zero
-                if (std::rand() % 10 == 0) { // 10% chance of being non-zero
-                    value = std::rand() % 10 + 1;
-                }
-            }
-
-            if (value != 0) {
+        // Initialize all elements to non-zero values
+        for (size_t i = 0; i < n; ++i) {
+            rows[i].reserve(n);
+            for (size_t j = 0; j < n; ++j) {
+                int value = std::rand() % 10 + 1; // Random values between 1 and 10
                 rows[i].emplace_back(j, value);
-                ++nnzInRow;
+            }
+            if (rows[i].size() > maxNNZ) {
+                maxNNZ = rows[i].size();
             }
         }
 
-        if (nnzInRow > maxNNZ) {
-            maxNNZ = nnzInRow;
+        // Randomly assign zeros
+        for (size_t idx = 0; idx < numZeros; ++idx) {
+            size_t i = std::rand() % n;
+            size_t j = std::rand() % n;
+
+            // Find and remove the element to set it to zero
+            auto& row = rows[i];
+            bool found = false;
+            for (auto it = row.begin(); it != row.end(); ++it) {
+                if (it->first == j) {
+                    row.erase(it);
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                // If the element was already zero (unlikely), retry
+                idx--;
+            }
+        }
+
+        // Update maxNNZPerRow after removing zeros
+        maxNNZ = 0;
+        for (size_t i = 0; i < n; ++i) {
+            size_t nnzInRow = rows[i].size();
+            if (nnzInRow > maxNNZ) {
+                maxNNZ = nnzInRow;
+            }
+        }
+
+    } else {
+        // For sparse matrices, O(n) non-zero elements
+        size_t nnzTotal = n; // Total number of non-zero elements
+
+        // Assign one non-zero element per row
+        for (size_t i = 0; i < n; ++i) {
+            size_t j = std::rand() % n;
+            int value = std::rand() % 10 + 1; // Random values between 1 and 10
+            rows[i].emplace_back(j, value);
+            if (rows[i].size() > maxNNZ) {
+                maxNNZ = rows[i].size();
+            }
         }
     }
 
@@ -210,9 +247,11 @@ Matrix::generateRandomData()
             colIndices[offset + k] = elem.first;
             ++k;
         }
-
+        // Remaining positions are already zero-initialized
     }
 }
+
+
 
 Matrix 
 generateMatrix(size_t n, MatrixType matrixType) 
@@ -307,42 +346,63 @@ Matrix
 multiply(const Matrix& matA, const Matrix& matB) 
 {
     size_t n = matA.n;
-    Matrix result(n, DENSE); // Result will be in ELLPACK format
+    Matrix result(n, DENSE);
 
-    // Initialize result matrix
-    result.maxNNZPerRow = n; // Maximum possible non-zero elements per row
+    // Temporary storage for result rows
+    std::vector<std::vector<std::pair<size_t, int>>> resultRows(n);
+
+    for (size_t i = 0; i < n; ++i) {
+        // Map to store column indices and their summed values
+        std::unordered_map<size_t, int> rowValues;
+
+        for (size_t k = 0; k < n; ++k) {
+            int valA = matA.getElement(i, k);
+            if (valA == 0) continue;
+
+            for (size_t idxB = 0; idxB < matB.maxNNZPerRow; ++idxB) {
+                size_t offsetB = k * matB.maxNNZPerRow + idxB;
+                int valB = matB.values[offsetB];
+                size_t colB = matB.colIndices[offsetB];
+                if (valB == 0) continue;
+
+                rowValues[colB] += valA * valB;
+            }
+        }
+
+        // Convert map to vector
+        for (const auto& pair : rowValues) {
+            resultRows[i].emplace_back(pair.first, pair.second);
+        }
+    }
+
+    // Determine maxNNZPerRow for result
+    size_t maxNNZ = 0;
+    for (const auto& row : resultRows) {
+        if (row.size() > maxNNZ) {
+            maxNNZ = row.size();
+        }
+    }
+    result.maxNNZPerRow = maxNNZ;
+
+    // Initialize result ELLPACK structures
     result.values.resize(n * result.maxNNZPerRow, 0);
     result.colIndices.resize(n * result.maxNNZPerRow, 0);
 
+    // Fill the result ELLPACK structures
     for (size_t i = 0; i < n; ++i) {
-        size_t resultOffset = i * result.maxNNZPerRow;
-        size_t resultNNZ = 0;
+        size_t offset = i * result.maxNNZPerRow;
+        size_t k = 0;
 
-        for (size_t j = 0; j < n; ++j) {
-            int sum = 0;
-
-            for (size_t k = 0; k < n; ++k) {
-                int valA = matA.getElement(i, k);
-                int valB = matB.getElement(k, j);
-                sum += valA * valB;
-            }
-
-            if (sum != 0) {
-                if (resultNNZ < result.maxNNZPerRow) {
-                    result.values[resultOffset + resultNNZ] = sum;
-                    result.colIndices[resultOffset + resultNNZ] = j;
-                    resultNNZ++;
-                } else {
-                    // Exceeded maxNNZPerRow, need to handle resizing or report an error
-                    std::cerr << "Error: Exceeded maximum non-zero elements per row in result.\n";
-                    exit(1);
-                }
-            }
+        for (const auto& elem : resultRows[i]) {
+            result.values[offset + k] = elem.second;
+            result.colIndices[offset + k] = elem.first;
+            ++k;
         }
     }
 
     return result;
 }
+
 
 
 Matrix 
@@ -351,38 +411,65 @@ multiplyM(const Matrix& matA, const Matrix& matB, size_t threadNum)
     size_t n = matA.n;
     Matrix result(n, DENSE);
 
-    // Initialize result matrix
-    result.maxNNZPerRow = n; // Maximum possible non-zero elements per row
-    result.values.resize(n * result.maxNNZPerRow, 0);
-    result.colIndices.resize(n * result.maxNNZPerRow, 0);
+    // Temporary storage for result rows
+    std::vector<std::vector<std::pair<size_t, int>>> resultRows(n);
 
     #pragma omp parallel for num_threads(threadNum)
     for (size_t i = 0; i < n; ++i) {
-        size_t resultOffset = i * result.maxNNZPerRow;
-        size_t resultNNZ = 0;
+        std::unordered_map<size_t, int> rowValues;
 
-        for (size_t j = 0; j < n; ++j) {
-            int sum = 0;
+        for (size_t k = 0; k < n; ++k) {
+            int valA = matA.getElement(i, k);
+            if (valA == 0) continue;
 
-            for (size_t k = 0; k < n; ++k) {
-                int valA = matA.getElement(i, k);
-                int valB = matB.getElement(k, j);
-                sum += valA * valB;
-            }
+            for (size_t idxB = 0; idxB < matB.maxNNZPerRow; ++idxB) {
+                size_t offsetB = k * matB.maxNNZPerRow + idxB;
+                int valB = matB.values[offsetB];
+                size_t colB = matB.colIndices[offsetB];
+                if (valB == 0) continue;
 
-            if (sum != 0) {
-                result.values[resultOffset + resultNNZ] = sum;
-                result.colIndices[resultOffset + resultNNZ] = j;
-                resultNNZ++;
+                #pragma omp atomic
+                rowValues[colB] += valA * valB;
             }
         }
 
-        // Update result.maxNNZPerRow if necessary
-        // For simplicity, we assume maxNNZPerRow is sufficient
+        // Convert map to vector
+        for (const auto& pair : rowValues) {
+            resultRows[i].emplace_back(pair.first, pair.second);
+        }
     }
+
+    // Determine maxNNZPerRow for result
+    size_t maxNNZ = 0;
+    for (const auto& row : resultRows) {
+        if (row.size() > maxNNZ) {
+            maxNNZ = row.size();
+        }
+    }
+    result.maxNNZPerRow = maxNNZ;
+
+    // Initialize result ELLPACK structures
+    result.values.resize(n * result.maxNNZPerRow, 0);
+    result.colIndices.resize(n * result.maxNNZPerRow, 0);
+
+    // Fill the result ELLPACK structures
+    for (size_t i = 0; i < n; ++i) {
+        size_t offset = i * result.maxNNZPerRow;
+        size_t k = 0;
+
+        for (const auto& elem : resultRows[i]) {
+            result.values[offset + k] = elem.second;
+            result.colIndices[offset + k] = elem.first;
+            ++k;
+        }
+    }
+
     return result;
 }
 
+
+
+#include <immintrin.h>
 
 Matrix 
 multiplyS(const Matrix& matA, const Matrix& matB) 
@@ -390,24 +477,57 @@ multiplyS(const Matrix& matA, const Matrix& matB)
     size_t n = matA.n;
     Matrix result(n, DENSE);
 
+    // Determine maxNNZPerRow for result
+    result.maxNNZPerRow = matB.maxNNZPerRow;
+    result.values.resize(n * result.maxNNZPerRow, 0);
+    result.colIndices.resize(n * result.maxNNZPerRow, 0);
+
+    const size_t SIMD_WIDTH = 8;
+
     for (size_t i = 0; i < n; ++i) {
-        for (size_t k = 0; k < n; ++k) {
-            int valA = matA.getElement(i, k);
+        size_t offsetA = i * matA.maxNNZPerRow;
+
+        for (size_t idxA = 0; idxA < matA.maxNNZPerRow; ++idxA) {
+            int valA = matA.values[offsetA + idxA];
+            size_t colA = matA.colIndices[offsetA + idxA];
+            if (valA == 0) continue;
+
             __m256i vecA = _mm256_set1_epi32(valA);
 
-            size_t j = 0;
-            for (; j + 8 <= n; j += 8) {
-                __m256i vecB = _mm256_loadu_si256((__m256i*)&matB.denseData[k * n + j]);
-                __m256i vecC = _mm256_loadu_si256((__m256i*)&result.denseData[i * n + j]);
+            size_t offsetB = colA * matB.maxNNZPerRow;
+
+            size_t idxB = 0;
+            for (; idxB + SIMD_WIDTH <= matB.maxNNZPerRow; idxB += SIMD_WIDTH) {
+                // Load values from matB
+                __m256i vecB = _mm256_loadu_si256((__m256i*)&matB.values[offsetB + idxB]);
+                __m256i vecCols = _mm256_loadu_si256((__m256i*)&matB.colIndices[offsetB + idxB]);
+
+                // Multiply
                 __m256i vecMul = _mm256_mullo_epi32(vecA, vecB);
-                vecC = _mm256_add_epi32(vecC, vecMul);
-                _mm256_storeu_si256((__m256i*)&result.denseData[i * n + j], vecC);
+
+                // Load existing values from result
+                size_t offsetR = i * result.maxNNZPerRow + idxB;
+                __m256i vecRes = _mm256_loadu_si256((__m256i*)&result.values[offsetR]);
+
+                // Add the multiplication result
+                vecRes = _mm256_add_epi32(vecRes, vecMul);
+
+                // Store back to result
+                _mm256_storeu_si256((__m256i*)&result.values[offsetR], vecRes);
+
+                // Copy column indices
+                _mm256_storeu_si256((__m256i*)&result.colIndices[offsetR], vecCols);
             }
 
             // Handle remaining elements
-            for (; j < n; ++j) {
-                int valB = matB.getElement(k, j);
-                result.denseData[i * n + j] += valA * valB;
+            for (; idxB < matB.maxNNZPerRow; ++idxB) {
+                int valB = matB.values[offsetB + idxB];
+                size_t colB = matB.colIndices[offsetB + idxB];
+                if (valB == 0) continue;
+
+                size_t offsetR = i * result.maxNNZPerRow + idxB;
+                result.values[offsetR] += valA * valB;
+                result.colIndices[offsetR] = colB;
             }
         }
     }
@@ -418,35 +538,65 @@ multiplyS(const Matrix& matA, const Matrix& matB)
 Matrix 
 multiplyO(Matrix& matA, Matrix& matB) 
 {
-    // Compress matrices
+    // Ensure matrices are compressed
     if (!matA.compressed) matA.compress();
     if (!matB.compressed) matB.compress();
 
     size_t n = matA.n;
     Matrix result(n, DENSE);
 
+    // Temporary storage for result rows
+    std::vector<std::unordered_map<size_t, int>> resultRows(n);
+
     for (size_t i = 0; i < n; ++i) {
-        size_t rowStartA = matA.rowPtr[i];
-        size_t rowEndA = matA.rowPtr[i + 1];
+        size_t rowStartA = matA.csrRowPtr[i];
+        size_t rowEndA = matA.csrRowPtr[i + 1];
 
         for (size_t idxA = rowStartA; idxA < rowEndA; ++idxA) {
-            size_t k = matA.colIdx[idxA];
-            int valA = matA.values[idxA];
+            int valA = matA.csrValues[idxA];
+            size_t colA = matA.csrColIdx[idxA];
 
-            size_t rowStartB = matB.rowPtr[k];
-            size_t rowEndB = matB.rowPtr[k + 1];
+            size_t rowStartB = matB.csrRowPtr[colA];
+            size_t rowEndB = matB.csrRowPtr[colA + 1];
 
             for (size_t idxB = rowStartB; idxB < rowEndB; ++idxB) {
-                size_t j = matB.colIdx[idxB];
-                int valB = matB.values[idxB];
+                int valB = matB.csrValues[idxB];
+                size_t colB = matB.csrColIdx[idxB];
 
-                result.denseData[i * n + j] += valA * valB;
+                resultRows[i][colB] += valA * valB;
             }
+        }
+    }
+
+    // Determine maxNNZPerRow for result
+    size_t maxNNZ = 0;
+    for (const auto& rowMap : resultRows) {
+        if (rowMap.size() > maxNNZ) {
+            maxNNZ = rowMap.size();
+        }
+    }
+    result.maxNNZPerRow = maxNNZ;
+
+    // Initialize result ELLPACK structures
+    result.values.resize(n * maxNNZ, 0);
+    result.colIndices.resize(n * maxNNZ, 0);
+
+    // Fill the result ELLPACK structures
+    for (size_t i = 0; i < n; ++i) {
+        const auto& rowMap = resultRows[i];
+        size_t offset = i * maxNNZ;
+        size_t k = 0;
+
+        for (const auto& elem : rowMap) {
+            result.values[offset + k] = elem.second;
+            result.colIndices[offset + k] = elem.first;
+            ++k;
         }
     }
 
     return result;
 }
+
 
 Matrix 
 multiplyMS(const Matrix& matA, const Matrix& matB, size_t threadNum) 
@@ -454,25 +604,52 @@ multiplyMS(const Matrix& matA, const Matrix& matB, size_t threadNum)
     size_t n = matA.n;
     Matrix result(n, DENSE);
 
+    // Determine maxNNZPerRow for result
+    result.maxNNZPerRow = matB.maxNNZPerRow;
+    result.values.resize(n * result.maxNNZPerRow, 0);
+    result.colIndices.resize(n * result.maxNNZPerRow, 0);
+
+    const size_t SIMD_WIDTH = 8;
+
     #pragma omp parallel for num_threads(threadNum)
     for (size_t i = 0; i < n; ++i) {
-        for (size_t k = 0; k < n; ++k) {
-            int valA = matA.getElement(i, k);
+        size_t offsetA = i * matA.maxNNZPerRow;
+
+        for (size_t idxA = 0; idxA < matA.maxNNZPerRow; ++idxA) {
+            int valA = matA.values[offsetA + idxA];
+            size_t colA = matA.colIndices[offsetA + idxA];
+            if (valA == 0) continue;
+
             __m256i vecA = _mm256_set1_epi32(valA);
 
-            size_t j = 0;
-            for (; j + 8 <= n; j += 8) {
-                __m256i vecB = _mm256_loadu_si256((__m256i*)&matB.denseData[k * n + j]);
-                __m256i vecC = _mm256_loadu_si256((__m256i*)&result.denseData[i * n + j]);
+            size_t offsetB = colA * matB.maxNNZPerRow;
+
+            size_t idxB = 0;
+            for (; idxB + SIMD_WIDTH <= matB.maxNNZPerRow; idxB += SIMD_WIDTH) {
+                __m256i vecB = _mm256_loadu_si256((__m256i*)&matB.values[offsetB + idxB]);
+                __m256i vecCols = _mm256_loadu_si256((__m256i*)&matB.colIndices[offsetB + idxB]);
+
                 __m256i vecMul = _mm256_mullo_epi32(vecA, vecB);
-                vecC = _mm256_add_epi32(vecC, vecMul);
-                _mm256_storeu_si256((__m256i*)&result.denseData[i * n + j], vecC);
+
+                size_t offsetR = i * result.maxNNZPerRow + idxB;
+                __m256i vecRes = _mm256_loadu_si256((__m256i*)&result.values[offsetR]);
+
+                vecRes = _mm256_add_epi32(vecRes, vecMul);
+
+                _mm256_storeu_si256((__m256i*)&result.values[offsetR], vecRes);
+                _mm256_storeu_si256((__m256i*)&result.colIndices[offsetR], vecCols);
             }
 
             // Handle remaining elements
-            for (; j < n; ++j) {
-                int valB = matB.getElement(k, j);
-                result.denseData[i * n + j] += valA * valB;
+            for (; idxB < matB.maxNNZPerRow; ++idxB) {
+                int valB = matB.values[offsetB + idxB];
+                size_t colB = matB.colIndices[offsetB + idxB];
+                if (valB == 0) continue;
+
+                size_t offsetR = i * result.maxNNZPerRow + idxB;
+                #pragma omp atomic
+                result.values[offsetR] += valA * valB;
+                result.colIndices[offsetR] = colB;
             }
         }
     }
@@ -480,35 +657,67 @@ multiplyMS(const Matrix& matA, const Matrix& matB, size_t threadNum)
     return result;
 }
 
+
 Matrix 
 multiplyMO(Matrix& matA, Matrix& matB, size_t threadNum) 
 {
-    // Compress matrices
+    // Ensure matrices are compressed
     if (!matA.compressed) matA.compress();
     if (!matB.compressed) matB.compress();
 
     size_t n = matA.n;
     Matrix result(n, DENSE);
 
+    // Temporary storage for result rows
+    std::vector<std::unordered_map<size_t, int>> resultRows(n);
+
     #pragma omp parallel for num_threads(threadNum)
     for (size_t i = 0; i < n; ++i) {
-        size_t rowStartA = matA.rowPtr[i];
-        size_t rowEndA = matA.rowPtr[i + 1];
+        auto& rowMap = resultRows[i];
+
+        size_t rowStartA = matA.csrRowPtr[i];
+        size_t rowEndA = matA.csrRowPtr[i + 1];
 
         for (size_t idxA = rowStartA; idxA < rowEndA; ++idxA) {
-            size_t k = matA.colIdx[idxA];
-            int valA = matA.values[idxA];
+            int valA = matA.csrValues[idxA];
+            size_t colA = matA.csrColIdx[idxA];
 
-            size_t rowStartB = matB.rowPtr[k];
-            size_t rowEndB = matB.rowPtr[k + 1];
+            size_t rowStartB = matB.csrRowPtr[colA];
+            size_t rowEndB = matB.csrRowPtr[colA + 1];
 
             for (size_t idxB = rowStartB; idxB < rowEndB; ++idxB) {
-                size_t j = matB.colIdx[idxB];
-                int valB = matB.values[idxB];
+                int valB = matB.csrValues[idxB];
+                size_t colB = matB.csrColIdx[idxB];
 
                 #pragma omp atomic
-                result.denseData[i * n + j] += valA * valB;
+                rowMap[colB] += valA * valB;
             }
+        }
+    }
+
+    // Determine maxNNZPerRow for result
+    size_t maxNNZ = 0;
+    for (const auto& rowMap : resultRows) {
+        if (rowMap.size() > maxNNZ) {
+            maxNNZ = rowMap.size();
+        }
+    }
+    result.maxNNZPerRow = maxNNZ;
+
+    // Initialize result ELLPACK structures
+    result.values.resize(n * maxNNZ, 0);
+    result.colIndices.resize(n * maxNNZ, 0);
+
+    // Fill the result ELLPACK structures
+    for (size_t i = 0; i < n; ++i) {
+        const auto& rowMap = resultRows[i];
+        size_t offset = i * maxNNZ;
+        size_t k = 0;
+
+        for (const auto& elem : rowMap) {
+            result.values[offset + k] = elem.second;
+            result.colIndices[offset + k] = elem.first;
+            ++k;
         }
     }
 
@@ -518,151 +727,185 @@ multiplyMO(Matrix& matA, Matrix& matB, size_t threadNum)
 Matrix 
 multiplySO(Matrix& matA, Matrix& matB) 
 {
-    // Compress matrices if not already compressed
+    // Ensure matrices are compressed
     if (!matA.compressed) matA.compress();
     if (!matB.compressed) matB.compress();
 
     size_t n = matA.n;
     Matrix result(n, DENSE);
 
-    // Allocate memory without alignment
-    result.denseData.resize(n * n, 0);
+    // Temporary storage for result rows
+    std::vector<std::unordered_map<size_t, int>> resultRows(n);
 
-    // Proceed with SIMD code using unaligned load/store
-    const size_t SIMD_WIDTH = 8; // AVX2 processes 8 integers
+    const size_t SIMD_WIDTH = 8;
 
-    // Loop over rows of matA
     for (size_t i = 0; i < n; ++i) {
-        size_t rowStartA = matA.rowPtr[i];
-        size_t rowEndA = matA.rowPtr[i + 1];
+        auto& rowMap = resultRows[i];
 
-        // Loop over non-zero elements in row i of matA
+        size_t rowStartA = matA.csrRowPtr[i];
+        size_t rowEndA = matA.csrRowPtr[i + 1];
+
         for (size_t idxA = rowStartA; idxA < rowEndA; ++idxA) {
-            size_t k = matA.colIdx[idxA];  // Column index in matA
-            int valA = matA.values[idxA];  // Non-zero value in matA
+            int valA = matA.csrValues[idxA];
+            size_t colA = matA.csrColIdx[idxA];
 
-            // Get the row k of matB
-            size_t rowStartB = matB.rowPtr[k];
-            size_t rowEndB = matB.rowPtr[k + 1];
+            size_t rowStartB = matB.csrRowPtr[colA];
+            size_t rowEndB = matB.csrRowPtr[colA + 1];
 
-            size_t idxB = rowStartB;
+            size_t lenB = rowEndB - rowStartB;
+            size_t idxB = 0;
 
-            // Process elements in chunks of SIMD_WIDTH
-            while (idxB + SIMD_WIDTH <= rowEndB) {
-                // Load column indices and values from matB
-                __m256i vecIndices = _mm256_loadu_si256((__m256i*)&matB.colIdx[idxB]);
-                __m256i vecB = _mm256_loadu_si256((__m256i*)&matB.values[idxB]);
+            // Process in SIMD_WIDTH chunks
+            while (idxB + SIMD_WIDTH <= lenB) {
+                // Load values and columns from matB
+                __m256i vecValB = _mm256_loadu_si256((__m256i*)&matB.csrValues[rowStartB + idxB]);
+                __m256i vecColB = _mm256_loadu_si256((__m256i*)&matB.csrColIdx[rowStartB + idxB]);
 
-                // Multiply valA with vecB
-                __m256i vecA = _mm256_set1_epi32(valA);
-                __m256i vecMul = _mm256_mullo_epi32(vecA, vecB);
+                // Broadcast valA
+                __m256i vecValA = _mm256_set1_epi32(valA);
 
-                // Compute result indices
-                __m256i rowOffset = _mm256_set1_epi32(static_cast<int>(i * n));
-                __m256i resultIndices = _mm256_add_epi32(rowOffset, vecIndices);
+                // Multiply
+                __m256i vecMul = _mm256_mullo_epi32(vecValA, vecValB);
 
-                // Manually scatter-add the results
-                alignas(32) int indicesArray[SIMD_WIDTH];
-                alignas(32) int valuesArray[SIMD_WIDTH];
-                _mm256_storeu_si256((__m256i*)indicesArray, resultIndices);
-                _mm256_storeu_si256((__m256i*)valuesArray, vecMul);
+                // Extract results and update rowMap
+                alignas(32) int cols[SIMD_WIDTH];
+                alignas(32) int vals[SIMD_WIDTH];
+                _mm256_store_si256((__m256i*)cols, vecColB);
+                _mm256_store_si256((__m256i*)vals, vecMul);
 
-                for (int l = 0; l < SIMD_WIDTH; ++l) {
-                    int idx = indicesArray[l];
-                    int val = valuesArray[l];
-                    result.denseData[idx] += val;
+                for (size_t l = 0; l < SIMD_WIDTH; ++l) {
+                    rowMap[cols[l]] += vals[l];
                 }
 
                 idxB += SIMD_WIDTH;
             }
 
             // Handle remaining elements
-            for (; idxB < rowEndB; ++idxB) {
-                size_t j = matB.colIdx[idxB];
-                int valB = matB.values[idxB];
-                result.denseData[i * n + j] += valA * valB;
+            for (; idxB < lenB; ++idxB) {
+                int valB = matB.csrValues[rowStartB + idxB];
+                size_t colB = matB.csrColIdx[rowStartB + idxB];
+
+                rowMap[colB] += valA * valB;
             }
+        }
+    }
+
+    // Determine maxNNZPerRow for result
+    size_t maxNNZ = 0;
+    for (const auto& rowMap : resultRows) {
+        if (rowMap.size() > maxNNZ) {
+            maxNNZ = rowMap.size();
+        }
+    }
+    result.maxNNZPerRow = maxNNZ;
+
+    // Initialize result ELLPACK structures
+    result.values.resize(n * maxNNZ, 0);
+    result.colIndices.resize(n * maxNNZ, 0);
+
+    // Fill the result ELLPACK structures
+    for (size_t i = 0; i < n; ++i) {
+        const auto& rowMap = resultRows[i];
+        size_t offset = i * maxNNZ;
+        size_t k = 0;
+
+        for (const auto& elem : rowMap) {
+            result.values[offset + k] = elem.second;
+            result.colIndices[offset + k] = elem.first;
+            ++k;
         }
     }
 
     return result;
 }
 
-Matrix multiplyMSO(Matrix& matA, Matrix& matB, size_t threadNum) {
-    // Compress matrices if not already compressed
+Matrix 
+multiplyMSO(Matrix& matA, Matrix& matB, size_t threadNum) 
+{
+    // Ensure matrices are compressed
     if (!matA.compressed) matA.compress();
     if (!matB.compressed) matB.compress();
 
     size_t n = matA.n;
     Matrix result(n, DENSE);
 
-    // Initialize result.denseData to zero
-    result.denseData.resize(n * n);
-    std::fill(result.denseData.begin(), result.denseData.end(), 0);
+    // Temporary storage for result rows
+    std::vector<std::unordered_map<size_t, int>> resultRows(n);
 
-    const size_t SIMD_WIDTH = 8; // AVX2 processes 8 integers
+    const size_t SIMD_WIDTH = 8;
 
-    // Parallelize the outer loop using OpenMP
     #pragma omp parallel for num_threads(threadNum)
     for (size_t i = 0; i < n; ++i) {
-        // Local buffer to accumulate results before writing to shared memory
-        std::vector<int> localResult(n, 0);
+        auto& rowMap = resultRows[i];
 
-        size_t rowStartA = matA.rowPtr[i];
-        size_t rowEndA = matA.rowPtr[i + 1];
+        size_t rowStartA = matA.csrRowPtr[i];
+        size_t rowEndA = matA.csrRowPtr[i + 1];
 
-        // Loop over non-zero elements in row i of matA
         for (size_t idxA = rowStartA; idxA < rowEndA; ++idxA) {
-            size_t k = matA.colIdx[idxA];  // Column index in matA
-            int valA = matA.values[idxA];  // Non-zero value in matA
+            int valA = matA.csrValues[idxA];
+            size_t colA = matA.csrColIdx[idxA];
 
-            // Get the row k of matB
-            size_t rowStartB = matB.rowPtr[k];
-            size_t rowEndB = matB.rowPtr[k + 1];
+            size_t rowStartB = matB.csrRowPtr[colA];
+            size_t rowEndB = matB.csrRowPtr[colA + 1];
 
-            size_t idxB = rowStartB;
+            size_t lenB = rowEndB - rowStartB;
+            size_t idxB = 0;
 
-            // Process elements in chunks of SIMD_WIDTH
-            while (idxB + SIMD_WIDTH <= rowEndB) {
-                // Load column indices and values from matB
-                __m256i vecIndices = _mm256_loadu_si256((__m256i*)&matB.colIdx[idxB]);
-                __m256i vecB = _mm256_loadu_si256((__m256i*)&matB.values[idxB]);
+            // Process in SIMD_WIDTH chunks
+            while (idxB + SIMD_WIDTH <= lenB) {
+                __m256i vecValB = _mm256_loadu_si256((__m256i*)&matB.csrValues[rowStartB + idxB]);
+                __m256i vecColB = _mm256_loadu_si256((__m256i*)&matB.csrColIdx[rowStartB + idxB]);
 
-                // Multiply valA with vecB
-                __m256i vecA = _mm256_set1_epi32(valA);
-                __m256i vecMul = _mm256_mullo_epi32(vecA, vecB);
+                __m256i vecValA = _mm256_set1_epi32(valA);
+                __m256i vecMul = _mm256_mullo_epi32(vecValA, vecValB);
 
-                // Extract indices and values
-                alignas(32) int indicesArray[SIMD_WIDTH];
-                alignas(32) int valuesArray[SIMD_WIDTH];
-                _mm256_storeu_si256((__m256i*)indicesArray, vecIndices);
-                _mm256_storeu_si256((__m256i*)valuesArray, vecMul);
+                alignas(32) int cols[SIMD_WIDTH];
+                alignas(32) int vals[SIMD_WIDTH];
+                _mm256_store_si256((__m256i*)cols, vecColB);
+                _mm256_store_si256((__m256i*)vals, vecMul);
 
-                // Accumulate results in the local buffer
-                for (int l = 0; l < SIMD_WIDTH; ++l) {
-                    size_t j = indicesArray[l];
-                    int val = valuesArray[l];
-                    localResult[j] += val;
+                for (size_t l = 0; l < SIMD_WIDTH; ++l) {
+                    #pragma omp atomic
+                    rowMap[cols[l]] += vals[l];
                 }
 
                 idxB += SIMD_WIDTH;
             }
 
             // Handle remaining elements
-            for (; idxB < rowEndB; ++idxB) {
-                size_t j = matB.colIdx[idxB];
-                int valB = matB.values[idxB];
-                localResult[j] += valA * valB;
+            for (; idxB < lenB; ++idxB) {
+                int valB = matB.csrValues[rowStartB + idxB];
+                size_t colB = matB.csrColIdx[rowStartB + idxB];
+
+                #pragma omp atomic
+                rowMap[colB] += valA * valB;
             }
         }
+    }
 
-        // Write local results to the shared result matrix
-        for (size_t j = 0; j < n; ++j) {
-            if (localResult[j] != 0) {
-                // Use atomic operation to prevent data races
-                #pragma omp atomic
-                result.denseData[i * n + j] += localResult[j];
-            }
+    // Determine maxNNZPerRow for result
+    size_t maxNNZ = 0;
+    for (const auto& rowMap : resultRows) {
+        if (rowMap.size() > maxNNZ) {
+            maxNNZ = rowMap.size();
+        }
+    }
+    result.maxNNZPerRow = maxNNZ;
+
+    // Initialize result ELLPACK structures
+    result.values.resize(n * maxNNZ, 0);
+    result.colIndices.resize(n * maxNNZ, 0);
+
+    // Fill the result ELLPACK structures
+    for (size_t i = 0; i < n; ++i) {
+        const auto& rowMap = resultRows[i];
+        size_t offset = i * maxNNZ;
+        size_t k = 0;
+
+        for (const auto& elem : rowMap) {
+            result.values[offset + k] = elem.second;
+            result.colIndices[offset + k] = elem.first;
+            ++k;
         }
     }
 
