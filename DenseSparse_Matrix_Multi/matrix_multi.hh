@@ -28,32 +28,34 @@ struct ProgramOptions {
 
 class Matrix {
 public:
-    MatrixType type;
-    size_t n; // Matrix dimensions (n x n)
-    bool compressed; // Indicates if the matrix is compressed
+    size_t n;                // Matrix dimensions (n x n)
+    MatrixType type;         // Dense or Sparse
+    size_t maxNNZPerRow;     // Maximum number of non-zero elements per row (for ELLPACK)
+    bool compressed;         // Indicates if the matrix is compressed
+    size_t multiplicationCount;
+    size_t additionCount;
 
-    // Dense representation
-    std::vector<int> denseData;
-
-    // Sparse representation (Coordinate List)
-    std::unordered_map<size_t, int> sparseData;
+    // ELLPACK representation
+    std::vector<int> values;        // Non-zero values (ELLPACK), size n * maxNNZPerRow
+    std::vector<size_t> colIndices; // Column indices (ELLPACK), size n * maxNNZPerRow
 
     // Compressed representation (CSR format)
-    std::vector<int> values;
-    std::vector<size_t> colIdx;
-    std::vector<size_t> rowPtr;
-
+    std::vector<int> csrValues;         // Non-zero values
+    std::vector<size_t> csrColIdx;      // Column indices
+    std::vector<size_t> csrRowPtr;      // Row pointers
+    
     // Constructor
-    Matrix(size_t size, MatrixType matrixType, bool compressed = false);
+    Matrix(size_t size, MatrixType matrixType);
 
     // Methods
+    void generateRandomData();                   // Generate matrix data
     void setElement(size_t row, size_t col, int value);
     int getElement(size_t row, size_t col) const;
-    void compress(); // Compress the matrix
+    void compress();                             // Compress the matrix
 };
 
 // Function to generate a matrix with specified size and type
-Matrix generateMatrix(size_t n, MatrixType matrixType);
+Matrix generateMatrix(size_t n, MatrixType matrixType); 
 
 // Functions for different options
 Matrix multiply(const Matrix& matA, const Matrix& matB);

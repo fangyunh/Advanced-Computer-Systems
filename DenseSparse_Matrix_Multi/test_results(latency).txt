@@ -1,0 +1,797 @@
+=================================
+Matrix Multiplication Test Results
+Run Date: 2024-10-09 01:35:43.468349
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Dense, B = Dense
+Optional Parameters: None
+Start Time: 2024-10-09 01:35:45.689661
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Dense
+Matrix B type: Dense
+Multithreading: Disabled
+SIMD: Disabled
+Cache Optimization: Disabled
+Time Taken: 2.08207s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Dense, B = Dense
+Optional Parameters: -m 12
+Start Time: 2024-10-09 01:35:46.453564
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Dense
+Matrix B type: Dense
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Disabled
+Cache Optimization: Disabled
+Time Taken: 0.625421s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Dense, B = Dense
+Optional Parameters: -s
+Start Time: 2024-10-09 01:35:46.781324
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Dense
+Matrix B type: Dense
+Multithreading: Disabled
+SIMD: Enabled
+Cache Optimization: Disabled
+Time Taken: 0.197258s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Dense, B = Dense
+Optional Parameters: -o
+Start Time: 2024-10-09 01:35:46.952632
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Dense
+Matrix B type: Dense
+Multithreading: Disabled
+SIMD: Disabled
+Cache Optimization: Enabled
+Time Taken: 0.0374363s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Dense, B = Dense
+Optional Parameters: -m 12 -s
+Start Time: 2024-10-09 01:35:47.144435
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Dense
+Matrix B type: Dense
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Enabled
+Cache Optimization: Disabled
+Time Taken: 0.06228s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Dense, B = Dense
+Optional Parameters: -m 12 -o
+Start Time: 2024-10-09 01:35:47.312725
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Dense
+Matrix B type: Dense
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Disabled
+Cache Optimization: Enabled
+Time Taken: 0.0376661s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Dense, B = Dense
+Optional Parameters: -s -o
+Start Time: 2024-10-09 01:35:47.482519
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Dense
+Matrix B type: Dense
+Multithreading: Disabled
+SIMD: Enabled
+Cache Optimization: Enabled
+Time Taken: 0.0368401s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Dense, B = Dense
+Optional Parameters: -m 12 -s -o
+Start Time: 2024-10-09 01:35:47.648616
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Dense
+Matrix B type: Dense
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Enabled
+Cache Optimization: Enabled
+Time Taken: 0.0360937s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Dense, B = Sparse
+Optional Parameters: None
+Start Time: 2024-10-09 01:35:47.950455
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Dense
+Matrix B type: Sparse
+Multithreading: Disabled
+SIMD: Disabled
+Cache Optimization: Disabled
+Time Taken: 0.230488s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Dense, B = Sparse
+Optional Parameters: -m 12
+Start Time: 2024-10-09 01:35:48.102445
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Dense
+Matrix B type: Sparse
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Disabled
+Cache Optimization: Disabled
+Time Taken: 0.075277s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Dense, B = Sparse
+Optional Parameters: -s
+Start Time: 2024-10-09 01:35:48.219699
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Dense
+Matrix B type: Sparse
+Multithreading: Disabled
+SIMD: Enabled
+Cache Optimization: Disabled
+Time Taken: 0.0351689s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Dense, B = Sparse
+Optional Parameters: -o
+Start Time: 2024-10-09 01:35:48.331553
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Dense
+Matrix B type: Sparse
+Multithreading: Disabled
+SIMD: Disabled
+Cache Optimization: Enabled
+Time Taken: 0.0379457s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Dense, B = Sparse
+Optional Parameters: -m 12 -s
+Start Time: 2024-10-09 01:35:48.439613
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Dense
+Matrix B type: Sparse
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Enabled
+Cache Optimization: Disabled
+Time Taken: 0.0329683s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Dense, B = Sparse
+Optional Parameters: -m 12 -o
+Start Time: 2024-10-09 01:35:48.559063
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Dense
+Matrix B type: Sparse
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Disabled
+Cache Optimization: Enabled
+Time Taken: 0.0480386s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Dense, B = Sparse
+Optional Parameters: -s -o
+Start Time: 2024-10-09 01:35:48.667189
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Dense
+Matrix B type: Sparse
+Multithreading: Disabled
+SIMD: Enabled
+Cache Optimization: Enabled
+Time Taken: 0.03542s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Dense, B = Sparse
+Optional Parameters: -m 12 -s -o
+Start Time: 2024-10-09 01:35:48.774787
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Dense
+Matrix B type: Sparse
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Enabled
+Cache Optimization: Enabled
+Time Taken: 0.0355163s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Sparse, B = Sparse
+Optional Parameters: None
+Start Time: 2024-10-09 01:35:48.829241
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Sparse
+Matrix B type: Sparse
+Multithreading: Disabled
+SIMD: Disabled
+Cache Optimization: Disabled
+Time Taken: 0.044845s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Sparse, B = Sparse
+Optional Parameters: -m 12
+Start Time: 2024-10-09 01:35:48.874593
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Sparse
+Matrix B type: Sparse
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Disabled
+Cache Optimization: Disabled
+Time Taken: 0.0348456s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Sparse, B = Sparse
+Optional Parameters: -s
+Start Time: 2024-10-09 01:35:48.918055
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Sparse
+Matrix B type: Sparse
+Multithreading: Disabled
+SIMD: Enabled
+Cache Optimization: Disabled
+Time Taken: 0.032449s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Sparse, B = Sparse
+Optional Parameters: -o
+Start Time: 2024-10-09 01:35:48.960501
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Sparse
+Matrix B type: Sparse
+Multithreading: Disabled
+SIMD: Disabled
+Cache Optimization: Enabled
+Time Taken: 0.0319394s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Sparse, B = Sparse
+Optional Parameters: -m 12 -s
+Start Time: 2024-10-09 01:35:49.003296
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Sparse
+Matrix B type: Sparse
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Enabled
+Cache Optimization: Disabled
+Time Taken: 0.0317657s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Sparse, B = Sparse
+Optional Parameters: -m 12 -o
+Start Time: 2024-10-09 01:35:49.047287
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Sparse
+Matrix B type: Sparse
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Disabled
+Cache Optimization: Enabled
+Time Taken: 0.0339009s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Sparse, B = Sparse
+Optional Parameters: -s -o
+Start Time: 2024-10-09 01:35:49.129036
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Sparse
+Matrix B type: Sparse
+Multithreading: Disabled
+SIMD: Enabled
+Cache Optimization: Enabled
+Time Taken: 0.0344218s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 1000
+Matrix Types: A = Sparse, B = Sparse
+Optional Parameters: -m 12 -s -o
+Start Time: 2024-10-09 01:35:49.171322
+Output:
+Matrix size: 1000 x 1000
+Matrix A type: Sparse
+Matrix B type: Sparse
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Enabled
+Cache Optimization: Enabled
+Time Taken: 0.0327768s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Dense, B = Dense
+Optional Parameters: None
+Start Time: 2024-10-09 02:16:01.886887
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Dense
+Matrix B type: Dense
+Multithreading: Disabled
+SIMD: Disabled
+Cache Optimization: Disabled
+Time Taken: 2138.97s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Dense, B = Dense
+Optional Parameters: -m 12
+Start Time: 2024-10-09 02:30:34.288399
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Dense
+Matrix B type: Dense
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Disabled
+Cache Optimization: Disabled
+Time Taken: 672.494s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Dense, B = Dense
+Optional Parameters: -s
+Start Time: 2024-10-09 02:42:42.789247
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Dense
+Matrix B type: Dense
+Multithreading: Disabled
+SIMD: Enabled
+Cache Optimization: Disabled
+Time Taken: 529.313s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Dense, B = Dense
+Optional Parameters: -o
+Start Time: 2024-10-09 02:46:51.297159
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Dense
+Matrix B type: Dense
+Multithreading: Disabled
+SIMD: Disabled
+Cache Optimization: Enabled
+Time Taken: 50.7472s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Dense, B = Dense
+Optional Parameters: -m 12 -s
+Start Time: 2024-10-09 02:52:34.832476
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Dense
+Matrix B type: Dense
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Enabled
+Cache Optimization: Disabled
+Time Taken: 145.341s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Dense, B = Dense
+Optional Parameters: -m 12 -o
+Start Time: 2024-10-09 02:56:44.757796
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Dense
+Matrix B type: Dense
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Disabled
+Cache Optimization: Enabled
+Time Taken: 50.5748s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Dense, B = Dense
+Optional Parameters: -s -o
+Start Time: 2024-10-09 03:00:55.850739
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Dense
+Matrix B type: Dense
+Multithreading: Disabled
+SIMD: Enabled
+Cache Optimization: Enabled
+Time Taken: 50.4921s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Dense, B = Dense
+Optional Parameters: -m 12 -s -o
+Start Time: 2024-10-09 03:05:06.289527
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Dense
+Matrix B type: Dense
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Enabled
+Cache Optimization: Enabled
+Time Taken: 51.3274s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Dense, B = Sparse
+Optional Parameters: None
+Start Time: 2024-10-09 03:09:21.809037
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Dense
+Matrix B type: Sparse
+Multithreading: Disabled
+SIMD: Disabled
+Cache Optimization: Disabled
+Time Taken: 155.272s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Dense, B = Sparse
+Optional Parameters: -m 12
+Start Time: 2024-10-09 03:12:14.735856
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Dense
+Matrix B type: Sparse
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Disabled
+Cache Optimization: Disabled
+Time Taken: 71.5009s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Dense, B = Sparse
+Optional Parameters: -s
+Start Time: 2024-10-09 03:14:43.734726
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Dense
+Matrix B type: Sparse
+Multithreading: Disabled
+SIMD: Enabled
+Cache Optimization: Disabled
+Time Taken: 49.9968s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Dense, B = Sparse
+Optional Parameters: -o
+Start Time: 2024-10-09 03:17:15.343407
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Dense
+Matrix B type: Sparse
+Multithreading: Disabled
+SIMD: Disabled
+Cache Optimization: Enabled
+Time Taken: 51.6259s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Dense, B = Sparse
+Optional Parameters: -m 12 -s
+Start Time: 2024-10-09 03:19:46.031144
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Dense
+Matrix B type: Sparse
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Enabled
+Cache Optimization: Disabled
+Time Taken: 50.195s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Dense, B = Sparse
+Optional Parameters: -m 12 -o
+Start Time: 2024-10-09 03:22:16.935744
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Dense
+Matrix B type: Sparse
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Disabled
+Cache Optimization: Enabled
+Time Taken: 50.7349s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Dense, B = Sparse
+Optional Parameters: -s -o
+Start Time: 2024-10-09 03:24:48.195349
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Dense
+Matrix B type: Sparse
+Multithreading: Disabled
+SIMD: Enabled
+Cache Optimization: Enabled
+Time Taken: 50.2182s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Dense, B = Sparse
+Optional Parameters: -m 12 -s -o
+Start Time: 2024-10-09 03:27:18.311794
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Dense
+Matrix B type: Sparse
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Enabled
+Cache Optimization: Enabled
+Time Taken: 51.1626s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Sparse, B = Sparse
+Optional Parameters: None
+Start Time: 2024-10-09 03:28:09.371398
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Sparse
+Matrix B type: Sparse
+Multithreading: Disabled
+SIMD: Disabled
+Cache Optimization: Disabled
+Time Taken: 50.9865s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Sparse, B = Sparse
+Optional Parameters: -m 12
+Start Time: 2024-10-09 03:29:00.334629
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Sparse
+Matrix B type: Sparse
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Disabled
+Cache Optimization: Disabled
+Time Taken: 50.8652s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Sparse, B = Sparse
+Optional Parameters: -s
+Start Time: 2024-10-09 03:29:50.148984
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Sparse
+Matrix B type: Sparse
+Multithreading: Disabled
+SIMD: Enabled
+Cache Optimization: Disabled
+Time Taken: 49.7421s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Sparse, B = Sparse
+Optional Parameters: -o
+Start Time: 2024-10-09 03:30:39.793184
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Sparse
+Matrix B type: Sparse
+Multithreading: Disabled
+SIMD: Disabled
+Cache Optimization: Enabled
+Time Taken: 49.5665s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Sparse, B = Sparse
+Optional Parameters: -m 12 -s
+Start Time: 2024-10-09 03:31:30.430990
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Sparse
+Matrix B type: Sparse
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Enabled
+Cache Optimization: Disabled
+Time Taken: 50.5633s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Sparse, B = Sparse
+Optional Parameters: -m 12 -o
+Start Time: 2024-10-09 03:32:20.101353
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Sparse
+Matrix B type: Sparse
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Disabled
+Cache Optimization: Enabled
+Time Taken: 49.5908s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Sparse, B = Sparse
+Optional Parameters: -s -o
+Start Time: 2024-10-09 03:33:10.305512
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Sparse
+Matrix B type: Sparse
+Multithreading: Disabled
+SIMD: Enabled
+Cache Optimization: Enabled
+Time Taken: 50.1176s.
+=================================
+
+=================================
+Test Case:
+Matrix Size (n): 10000
+Matrix Types: A = Sparse, B = Sparse
+Optional Parameters: -m 12 -s -o
+Start Time: 2024-10-09 03:34:00.773440
+Output:
+Matrix size: 10000 x 10000
+Matrix A type: Sparse
+Matrix B type: Sparse
+Multithreading: Enabled
+Number of threads: 12
+SIMD: Enabled
+Cache Optimization: Enabled
+Time Taken: 50.386s.
+=================================
+

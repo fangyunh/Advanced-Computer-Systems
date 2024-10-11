@@ -16,6 +16,12 @@ int main(int argc, char* argv[]) {
     auto endTime = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> genDuration = endTime - startTime;
 
+    // Calculate total operations
+    size_t totalOperations = result.multiplicationCount + result.additionCount;
+
+    // Calculate throughput (operations per second)
+    double throughput = totalOperations / genDuration.count();
+
     // Print settings
     std::cout << "Matrix size: " << options.n << " x " << options.n << "\n";
     std::cout << "Matrix A type: " << (options.matAType == DENSE ? "Dense" : "Sparse") << "\n";
@@ -27,9 +33,10 @@ int main(int argc, char* argv[]) {
     std::cout << "SIMD: " << (options.enableSIMD ? "Enabled" : "Disabled") << "\n";
     std::cout << "Cache Optimization: " << (options.enableOptimizations ? "Enabled" : "Disabled") << "\n";
     std::cout << "Time Taken: " << genDuration.count() << "s." << std::endl;
+    std::cout << "Throughput: " << throughput << " operations/second\n";
 
     return 0;
 }
 
 
-// g++ -std=c++11 -O2 -mavx2 -fopenmp -g matrix_main.cc matrix_multi.cc -o matrix_mul
+// g++ -o matrix_mul matrix_main.cc matrix_multi.cc -fopenmp -mavx2 -march=native -std=c++17 -O3 -g

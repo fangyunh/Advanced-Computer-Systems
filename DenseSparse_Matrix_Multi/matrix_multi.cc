@@ -6,6 +6,7 @@
 #include <random>
 #include <chrono>
 #include <cstdlib>
+#include <utility>
 #include <algorithm> 
 #include <omp.h>
 #include <immintrin.h>
@@ -84,7 +85,7 @@ parseCommandLineArguments(int argc, char* argv[])
 
 // Constructor for the Matrix class
 Matrix::Matrix(size_t size, MatrixType matrixType)
-    : n(size), type(matrixType), maxNNZPerRow(0) {
+    : n(size), type(matrixType), maxNNZPerRow(0), multiplicationCount(0), additionCount(0), compressed(false) {
     // Initialize random seed
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
@@ -131,7 +132,7 @@ Matrix::setElement(size_t row, size_t col, int value)
 
 
 
-// Get an element from the matrix
+//Get an element from the matrix
 int 
 Matrix::getElement(size_t row, size_t col) const {
     if (compressed) {
@@ -157,83 +158,112 @@ Matrix::getElement(size_t row, size_t col) const {
 }
 
 
-
-// Function to generate a matrix with specified size and type
 void 
 Matrix::generateRandomData() 
 {
-    size_t maxNNZ = 0;
+    // Initialize random number generators
+    std::mt19937 rng(static_cast<unsigned int>(std::time(nullptr)));
+    std::uniform_int_distribution<size_t> dist_col(0, n - 1);
+    std::uniform_int_distribution<int> dist_val(1, 10); // Non-zero values between 1 and 10
 
     // Temporary storage for row-wise data
     std::vector<std::vector<std::pair<size_t, int>>> rows(n);
 
     if (type == DENSE) {
-        // Calculate the total number of non-zero elements needed (95% of n^2)
-        size_t totalElements = n * n;
-        size_t nnzTotal = static_cast<size_t>(0.95 * totalElements);
-        size_t numZeros = totalElements - nnzTotal;
+        // Define sparsity for dense matrix: 0.1% zeros
+        double zero_fraction = 0.001; // 0.1%
+        size_t total_elements = n * n;
+        size_t num_zeros = static_cast<size_t>(zero_fraction * total_elements);
 
-        // Initialize all elements to non-zero values
+        // Initialize all elements as non-zero
         for (size_t i = 0; i < n; ++i) {
             rows[i].reserve(n);
             for (size_t j = 0; j < n; ++j) {
-                int value = std::rand() % 10 + 1; // Random values between 1 and 10
+                int value = dist_val(rng);
                 rows[i].emplace_back(j, value);
-            }
-            if (rows[i].size() > maxNNZ) {
-                maxNNZ = rows[i].size();
             }
         }
 
         // Randomly assign zeros
-        for (size_t idx = 0; idx < numZeros; ++idx) {
-            size_t i = std::rand() % n;
-            size_t j = std::rand() % n;
+        // Generate unique zero positions
+        std::unordered_set<size_t> zero_positions;
+        while (zero_positions.size() < num_zeros) {
+            size_t pos = dist_col(rng) + dist_col(rng) * n; // Row-major order
+            zero_positions.insert(pos);
+        }
 
-            // Find and remove the element to set it to zero
-            auto& row = rows[i];
-            bool found = false;
-            for (auto it = row.begin(); it != row.end(); ++it) {
-                if (it->first == j) {
-                    row.erase(it);
-                    found = true;
-                    break;
-                }
-            }
+        // Set selected positions to zero by removing them from rows
+        for (const auto& pos : zero_positions) {
+            size_t row = pos / n;
+            size_t col = pos % n;
 
-            if (!found) {
-                // If the element was already zero (unlikely), retry
-                idx--;
+            auto& current_row = rows[row];
+            // Find the element with column 'col' and remove it
+            auto it = std::find_if(current_row.begin(), current_row.end(),
+                                   [col](const std::pair<size_t, int>& elem) { return elem.first == col; });
+            if (it != current_row.end()) {
+                current_row.erase(it);
             }
         }
 
         // Update maxNNZPerRow after removing zeros
-        maxNNZ = 0;
+        maxNNZPerRow = 0;
         for (size_t i = 0; i < n; ++i) {
             size_t nnzInRow = rows[i].size();
-            if (nnzInRow > maxNNZ) {
-                maxNNZ = nnzInRow;
+            if (nnzInRow > maxNNZPerRow) {
+                maxNNZPerRow = nnzInRow;
             }
         }
 
-    } else {
-        // For sparse matrices, O(n) non-zero elements
-        size_t nnzTotal = n; // Total number of non-zero elements
+    } else { // SPARSE
+        // Define sparsity for sparse matrix: 1% zeros
+        double zero_fraction = 0.01; // 1%
+        size_t total_elements = n * n;
+        size_t num_zeros = static_cast<size_t>(zero_fraction * total_elements);
+        size_t num_nonzeros = total_elements - num_zeros;
 
-        // Assign one non-zero element per row
+        // Initialize all elements as non-zero
         for (size_t i = 0; i < n; ++i) {
-            size_t j = std::rand() % n;
-            int value = std::rand() % 10 + 1; // Random values between 1 and 10
-            rows[i].emplace_back(j, value);
-            if (rows[i].size() > maxNNZ) {
-                maxNNZ = rows[i].size();
+            rows[i].reserve(n);
+            for (size_t j = 0; j < n; ++j) {
+                int value = dist_val(rng);
+                rows[i].emplace_back(j, value);
+            }
+        }
+
+        // Randomly assign zeros
+        // Generate unique zero positions
+        std::unordered_set<size_t> zero_positions;
+        while (zero_positions.size() < num_zeros) {
+            size_t pos = dist_col(rng) + dist_col(rng) * n; // Row-major order
+            zero_positions.insert(pos);
+        }
+
+        // Set selected positions to zero by removing them from rows
+        for (const auto& pos : zero_positions) {
+            size_t row = pos / n;
+            size_t col = pos % n;
+
+            auto& current_row = rows[row];
+            // Find the element with column 'col' and remove it
+            auto it = std::find_if(current_row.begin(), current_row.end(),
+                                   [col](const std::pair<size_t, int>& elem) { return elem.first == col; });
+            if (it != current_row.end()) {
+                current_row.erase(it);
+            }
+        }
+
+        // Update maxNNZPerRow after removing zeros
+        maxNNZPerRow = 0;
+        for (size_t i = 0; i < n; ++i) {
+            size_t nnzInRow = rows[i].size();
+            if (nnzInRow > maxNNZPerRow) {
+                maxNNZPerRow = nnzInRow;
             }
         }
     }
 
-    maxNNZPerRow = maxNNZ;
-
-    // Resize the values and colIndices arrays
+    // Resize the values and colIndices arrays based on maxNNZPerRow
     values.resize(n * maxNNZPerRow, 0);
     colIndices.resize(n * maxNNZPerRow, 0);
 
@@ -243,14 +273,18 @@ Matrix::generateRandomData()
         size_t k = 0;
 
         for (const auto& elem : rows[i]) {
-            values[offset + k] = elem.second;
-            colIndices[offset + k] = elem.first;
-            ++k;
+            if (k < maxNNZPerRow) {
+                values[offset + k] = elem.second;
+                colIndices[offset + k] = elem.first;
+                ++k;
+            } else {
+                // This should not happen as maxNNZPerRow is the maximum across all rows
+                std::cerr << "Error: Exceeded maxNNZPerRow while filling ELLPACK structures." << std::endl;
+                break;
+            }
         }
-        // Remaining positions are already zero-initialized
     }
 }
-
 
 
 Matrix 
@@ -293,6 +327,11 @@ Matrix::compress()
         csrRowPtr.push_back(csrRowPtr.back() + nnzInRow);
     }
 
+    // Ensure that csrRowPtr has size n + 1
+    if (csrRowPtr.size() != n + 1) {
+        std::cerr << "Error: csrRowPtr size mismatch after compression." << std::endl;
+    }
+
     // Optionally, clear ELLPACK data to save memory
     values.clear();
     values.shrink_to_fit();
@@ -301,6 +340,7 @@ Matrix::compress()
 
     compressed = true;
 }
+
 
 
 // Multiply matrices with consideration of optimizations
@@ -347,6 +387,8 @@ multiply(const Matrix& matA, const Matrix& matB)
 {
     size_t n = matA.n;
     Matrix result(n, DENSE);
+    result.multiplicationCount = 0;
+    result.additionCount = 0;
 
     // Temporary storage for result rows
     std::vector<std::vector<std::pair<size_t, int>>> resultRows(n);
@@ -366,6 +408,8 @@ multiply(const Matrix& matA, const Matrix& matB)
                 if (valB == 0) continue;
 
                 rowValues[colB] += valA * valB;
+                result.multiplicationCount += 1;
+                result.additionCount += 1;
             }
         }
 
@@ -403,18 +447,22 @@ multiply(const Matrix& matA, const Matrix& matB)
     return result;
 }
 
-
-
-Matrix 
-multiplyM(const Matrix& matA, const Matrix& matB, size_t threadNum) 
+Matrix multiplyM(const Matrix& matA, const Matrix& matB, size_t threadNum) 
 {
     size_t n = matA.n;
     Matrix result(n, DENSE);
+    result.multiplicationCount = 0;
+    result.additionCount = 0;
 
     // Temporary storage for result rows
     std::vector<std::vector<std::pair<size_t, int>>> resultRows(n);
 
-    #pragma omp parallel for num_threads(threadNum)
+    // Initialize local counters for multiplication and addition
+    size_t localMultCount = 0;
+    size_t localAddCount = 0;
+
+    // Parallelize the outer loop over rows using OpenMP with reduction for counters
+    #pragma omp parallel for num_threads(threadNum) reduction(+:localMultCount, localAddCount)
     for (size_t i = 0; i < n; ++i) {
         std::unordered_map<size_t, int> rowValues;
 
@@ -424,12 +472,28 @@ multiplyM(const Matrix& matA, const Matrix& matB, size_t threadNum)
 
             for (size_t idxB = 0; idxB < matB.maxNNZPerRow; ++idxB) {
                 size_t offsetB = k * matB.maxNNZPerRow + idxB;
+                if (offsetB >= matB.values.size() || offsetB >= matB.colIndices.size()) {
+                    std::cerr << "Error: ELLPACK index out of bounds in matB." << std::endl;
+                    continue;
+                }
+
                 int valB = matB.values[offsetB];
                 size_t colB = matB.colIndices[offsetB];
                 if (valB == 0) continue;
 
-                #pragma omp atomic
-                rowValues[colB] += valA * valB;
+                // Accumulate the multiplication result
+                int product = valA * valB;
+                // Increment multiplication counter
+                localMultCount += 1;
+
+                // Check if this is the first addition to this column
+                if (rowValues.find(colB) == rowValues.end()) {
+                    rowValues[colB] = product;
+                } else {
+                    rowValues[colB] += product;
+                    // Increment addition counter
+                    localAddCount += 1;
+                }
             }
         }
 
@@ -437,7 +501,11 @@ multiplyM(const Matrix& matA, const Matrix& matB, size_t threadNum)
         for (const auto& pair : rowValues) {
             resultRows[i].emplace_back(pair.first, pair.second);
         }
-    }
+    } // End of parallel region
+
+    // Assign the accumulated counts to the result matrix
+    result.multiplicationCount = localMultCount;
+    result.additionCount = localAddCount;
 
     // Determine maxNNZPerRow for result
     size_t maxNNZ = 0;
@@ -458,6 +526,7 @@ multiplyM(const Matrix& matA, const Matrix& matB, size_t threadNum)
         size_t k = 0;
 
         for (const auto& elem : resultRows[i]) {
+            if (k >= result.maxNNZPerRow) break; // Prevent overflow
             result.values[offset + k] = elem.second;
             result.colIndices[offset + k] = elem.first;
             ++k;
@@ -467,22 +536,24 @@ multiplyM(const Matrix& matA, const Matrix& matB, size_t threadNum)
     return result;
 }
 
-
-
-#include <immintrin.h>
-
-Matrix 
-multiplyS(const Matrix& matA, const Matrix& matB) 
+Matrix multiplyS(const Matrix& matA, const Matrix& matB) 
 {
     size_t n = matA.n;
     Matrix result(n, DENSE);
+
+    result.multiplicationCount = 0;
+    result.additionCount = 0;
 
     // Determine maxNNZPerRow for result
     result.maxNNZPerRow = matB.maxNNZPerRow;
     result.values.resize(n * result.maxNNZPerRow, 0);
     result.colIndices.resize(n * result.maxNNZPerRow, 0);
 
-    const size_t SIMD_WIDTH = 8;
+    const size_t SIMD_WIDTH = 8; // AVX2 processes 8 integers at a time
+
+    // Initialize local counters for multiplication and addition
+    size_t localMultCount = 0;
+    size_t localAddCount = 0;
 
     for (size_t i = 0; i < n; ++i) {
         size_t offsetA = i * matA.maxNNZPerRow;
@@ -492,6 +563,7 @@ multiplyS(const Matrix& matA, const Matrix& matB)
             size_t colA = matA.colIndices[offsetA + idxA];
             if (valA == 0) continue;
 
+            // Broadcast valA across SIMD registers
             __m256i vecA = _mm256_set1_epi32(valA);
 
             size_t offsetB = colA * matB.maxNNZPerRow;
@@ -499,24 +571,24 @@ multiplyS(const Matrix& matA, const Matrix& matB)
             size_t idxB = 0;
             for (; idxB + SIMD_WIDTH <= matB.maxNNZPerRow; idxB += SIMD_WIDTH) {
                 // Load values from matB
-                __m256i vecB = _mm256_loadu_si256((__m256i*)&matB.values[offsetB + idxB]);
-                __m256i vecCols = _mm256_loadu_si256((__m256i*)&matB.colIndices[offsetB + idxB]);
+                __m256i vecB = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&matB.values[offsetB + idxB]));
+                __m256i vecCols = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&matB.colIndices[offsetB + idxB]));
 
                 // Multiply
                 __m256i vecMul = _mm256_mullo_epi32(vecA, vecB);
+                localMultCount += SIMD_WIDTH; // Each element in SIMD vector represents a multiplication
 
                 // Load existing values from result
                 size_t offsetR = i * result.maxNNZPerRow + idxB;
-                __m256i vecRes = _mm256_loadu_si256((__m256i*)&result.values[offsetR]);
+                __m256i vecRes = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&result.values[offsetR]));
 
                 // Add the multiplication result
-                vecRes = _mm256_add_epi32(vecRes, vecMul);
-
-                // Store back to result
-                _mm256_storeu_si256((__m256i*)&result.values[offsetR], vecRes);
+                __m256i vecAdd = _mm256_add_epi32(vecRes, vecMul);
+                _mm256_storeu_si256(reinterpret_cast<__m256i*>(&result.values[offsetR]), vecAdd);
+                localAddCount += SIMD_WIDTH; // Each element in SIMD vector represents an addition
 
                 // Copy column indices
-                _mm256_storeu_si256((__m256i*)&result.colIndices[offsetR], vecCols);
+                _mm256_storeu_si256(reinterpret_cast<__m256i*>(&result.colIndices[offsetR]), vecCols);
             }
 
             // Handle remaining elements
@@ -528,66 +600,146 @@ multiplyS(const Matrix& matA, const Matrix& matB)
                 size_t offsetR = i * result.maxNNZPerRow + idxB;
                 result.values[offsetR] += valA * valB;
                 result.colIndices[offsetR] = colB;
+
+                // Increment counters for scalar operations
+                localMultCount += 1;
+                localAddCount += 1;
             }
         }
     }
 
+    // Assign the accumulated counts to the result matrix
+    result.multiplicationCount = localMultCount;
+    result.additionCount = localAddCount;
+
     return result;
 }
 
-Matrix 
-multiplyO(Matrix& matA, Matrix& matB) 
+Matrix multiplyO(Matrix& matA, Matrix& matB) 
 {
     // Ensure matrices are compressed
     if (!matA.compressed) matA.compress();
     if (!matB.compressed) matB.compress();
 
     size_t n = matA.n;
-    Matrix result(n, DENSE);
+    Matrix result(n, DENSE); // Result will be in ELLPACK format
 
-    // Temporary storage for result rows
-    std::vector<std::unordered_map<size_t, int>> resultRows(n);
+    // Safeguard: Ensure matrices are compatible for multiplication
+    if (matA.n != matB.n) {
+        std::cerr << "Error: Incompatible matrix dimensions for multiplication." << std::endl;
+        return result; // Return an empty result matrix
+    }
 
+    // Safeguard: Ensure csrRowPtr sizes are correct
+    if (matA.csrRowPtr.size() != n + 1 || matB.csrRowPtr.size() != n + 1) {
+        std::cerr << "Error: csrRowPtr size does not match matrix dimensions." << std::endl;
+        return result;
+    }
+
+    // Temporary storage for result rows using vectors instead of unordered_map
+    std::vector<std::vector<std::pair<size_t, int>>> resultRows(n);
+
+    // Initialize local counters for multiplication and addition
+    size_t localMultCount = 0;
+    size_t localAddCount = 0;
+
+    // Iterate over rows of matA
     for (size_t i = 0; i < n; ++i) {
         size_t rowStartA = matA.csrRowPtr[i];
         size_t rowEndA = matA.csrRowPtr[i + 1];
 
+        // Temporary accumulation array
+        std::vector<int> tempRow(n, 0);
+        std::vector<size_t> activeCols;
+
+        // Process non-zero elements in row i of matA
         for (size_t idxA = rowStartA; idxA < rowEndA; ++idxA) {
+            // Safeguard: Check if idxA is within bounds
+            if (idxA >= matA.csrValues.size() || idxA >= matA.csrColIdx.size()) {
+                std::cerr << "Error: csrValues or csrColIdx index out of bounds in matA." << std::endl;
+                continue; // Skip to next idxA
+            }
+
             int valA = matA.csrValues[idxA];
             size_t colA = matA.csrColIdx[idxA];
+
+            // Safeguard: Check if colA is a valid row index in matB
+            if (colA >= matB.n) {
+                std::cerr << "Error: Column index out of bounds in matA (colA)." << std::endl;
+                continue; // Skip to next idxA
+            }
 
             size_t rowStartB = matB.csrRowPtr[colA];
             size_t rowEndB = matB.csrRowPtr[colA + 1];
 
+            // Process non-zero elements in row colA of matB
             for (size_t idxB = rowStartB; idxB < rowEndB; ++idxB) {
+                // Safeguard: Check if idxB is within bounds
+                if (idxB >= matB.csrValues.size() || idxB >= matB.csrColIdx.size()) {
+                    std::cerr << "Error: csrValues or csrColIdx index out of bounds in matB." << std::endl;
+                    continue; // Skip to next idxB
+                }
+
                 int valB = matB.csrValues[idxB];
                 size_t colB = matB.csrColIdx[idxB];
 
-                resultRows[i][colB] += valA * valB;
+                // Safeguard: Check if colB is valid
+                if (colB >= n) {
+                    std::cerr << "Error: Column index out of bounds in matB (colB)." << std::endl;
+                    continue; // Skip to next idxB
+                }
+
+                // Accumulate the multiplication result
+                if (tempRow[colB] == 0) {
+                    activeCols.push_back(colB);
+                } else {
+                    // If tempRow[colB] is already non-zero, an addition will occur
+                    localAddCount += 1;
+                }
+                tempRow[colB] += valA * valB;
+
+                // Each valA * valB represents one multiplication
+                localMultCount += 1;
+            }
+        }
+
+        // Transfer non-zero elements to resultRows
+        for (const auto& colB : activeCols) {
+            if (tempRow[colB] != 0) {
+                resultRows[i].emplace_back(colB, tempRow[colB]);
             }
         }
     }
 
-    // Determine maxNNZPerRow for result
+    // Assign the accumulated counts to the result matrix
+    result.multiplicationCount = localMultCount;
+    result.additionCount = localAddCount;
+
+    // Determine maxNNZPerRow for the result matrix
     size_t maxNNZ = 0;
-    for (const auto& rowMap : resultRows) {
-        if (rowMap.size() > maxNNZ) {
-            maxNNZ = rowMap.size();
+    for (const auto& row : resultRows) {
+        if (row.size() > maxNNZ) {
+            maxNNZ = row.size();
         }
     }
     result.maxNNZPerRow = maxNNZ;
 
-    // Initialize result ELLPACK structures
+    // Initialize the result matrix's ELLPACK structures
     result.values.resize(n * maxNNZ, 0);
     result.colIndices.resize(n * maxNNZ, 0);
 
-    // Fill the result ELLPACK structures
+    // Populate the result matrix from the temporary resultRows map
     for (size_t i = 0; i < n; ++i) {
-        const auto& rowMap = resultRows[i];
+        const auto& row = resultRows[i];
         size_t offset = i * maxNNZ;
         size_t k = 0;
 
-        for (const auto& elem : rowMap) {
+        // Optional: Sort the column indices for each row for consistency
+        std::vector<std::pair<size_t, int>> sortedRow(row);
+        std::sort(sortedRow.begin(), sortedRow.end());
+
+        for (const auto& elem : sortedRow) {
+            if (k >= maxNNZ) break; // Safeguard: Prevent overflow in ELLPACK structure
             result.values[offset + k] = elem.second;
             result.colIndices[offset + k] = elem.first;
             ++k;
@@ -597,12 +749,13 @@ multiplyO(Matrix& matA, Matrix& matB)
     return result;
 }
 
-
 Matrix 
 multiplyMS(const Matrix& matA, const Matrix& matB, size_t threadNum) 
 {
     size_t n = matA.n;
     Matrix result(n, DENSE);
+    result.multiplicationCount = 0;
+    result.additionCount = 0;
 
     // Determine maxNNZPerRow for result
     result.maxNNZPerRow = matB.maxNNZPerRow;
@@ -638,6 +791,12 @@ multiplyMS(const Matrix& matA, const Matrix& matB, size_t threadNum)
 
                 _mm256_storeu_si256((__m256i*)&result.values[offsetR], vecRes);
                 _mm256_storeu_si256((__m256i*)&result.colIndices[offsetR], vecCols);
+
+                // #pragma omp atomic
+                // result.multiplicationCount += SIMD_WIDTH; // 8 multiplications
+
+                // #pragma omp atomic
+                // result.additionCount += SIMD_WIDTH;
             }
 
             // Handle remaining elements
@@ -650,6 +809,12 @@ multiplyMS(const Matrix& matA, const Matrix& matB, size_t threadNum)
                 #pragma omp atomic
                 result.values[offsetR] += valA * valB;
                 result.colIndices[offsetR] = colB;
+
+                //  #pragma omp atomic
+                // result.multiplicationCount += 1; 
+
+                // #pragma omp atomic
+                // result.additionCount += 1;  
             }
         }
     }
@@ -666,55 +831,111 @@ multiplyMO(Matrix& matA, Matrix& matB, size_t threadNum)
     if (!matB.compressed) matB.compress();
 
     size_t n = matA.n;
-    Matrix result(n, DENSE);
+    Matrix result(n, DENSE); // Result will be in ELLPACK format
 
-    // Temporary storage for result rows
-    std::vector<std::unordered_map<size_t, int>> resultRows(n);
+    // Safeguard: Ensure matrices are compatible for multiplication
+    if (matA.n != matB.n) {
+        std::cerr << "Error: Incompatible matrix dimensions for multiplication." << std::endl;
+        return result; // Return an empty result matrix
+    }
 
+    // Safeguard: Ensure csrRowPtr sizes are correct
+    if (matA.csrRowPtr.size() != n + 1 || matB.csrRowPtr.size() != n + 1) {
+        std::cerr << "Error: csrRowPtr size does not match matrix dimensions." << std::endl;
+        return result;
+    }
+
+    // Temporary storage for result rows using vectors instead of unordered_map
+    std::vector<std::vector<std::pair<size_t, int>>> resultRows(n);
+
+    // Parallelize the outer loop over rows using OpenMP
     #pragma omp parallel for num_threads(threadNum)
     for (size_t i = 0; i < n; ++i) {
-        auto& rowMap = resultRows[i];
-
         size_t rowStartA = matA.csrRowPtr[i];
         size_t rowEndA = matA.csrRowPtr[i + 1];
 
+        // Temporary accumulation array
+        std::vector<int> tempRow(n, 0);
+        std::vector<size_t> activeCols;
+
+        // Process non-zero elements in row i of matA
         for (size_t idxA = rowStartA; idxA < rowEndA; ++idxA) {
+            // Safeguard: Check if idxA is within bounds
+            if (idxA >= matA.csrValues.size() || idxA >= matA.csrColIdx.size()) {
+                std::cerr << "Error: csrValues or csrColIdx index out of bounds in matA." << std::endl;
+                continue; // Skip to next idxA
+            }
+
             int valA = matA.csrValues[idxA];
             size_t colA = matA.csrColIdx[idxA];
+
+            // Safeguard: Check if colA is a valid row index in matB
+            if (colA >= matB.n) {
+                std::cerr << "Error: Column index out of bounds in matA (colA)." << std::endl;
+                continue; // Skip to next idxA
+            }
 
             size_t rowStartB = matB.csrRowPtr[colA];
             size_t rowEndB = matB.csrRowPtr[colA + 1];
 
+            // Process non-zero elements in row colA of matB
             for (size_t idxB = rowStartB; idxB < rowEndB; ++idxB) {
+                // Safeguard: Check if idxB is within bounds
+                if (idxB >= matB.csrValues.size() || idxB >= matB.csrColIdx.size()) {
+                    std::cerr << "Error: csrValues or csrColIdx index out of bounds in matB." << std::endl;
+                    continue; // Skip to next idxB
+                }
+
                 int valB = matB.csrValues[idxB];
                 size_t colB = matB.csrColIdx[idxB];
 
-                #pragma omp atomic
-                rowMap[colB] += valA * valB;
+                // Safeguard: Check if colB is valid
+                if (colB >= n) {
+                    std::cerr << "Error: Column index out of bounds in matB (colB)." << std::endl;
+                    continue; // Skip to next idxB
+                }
+
+                // Accumulate the multiplication result
+                if (tempRow[colB] == 0) {
+                    activeCols.push_back(colB);
+                }
+                tempRow[colB] += valA * valB;
+            }
+        }
+
+        // Transfer non-zero elements to resultRows
+        for (const auto& colB : activeCols) {
+            if (tempRow[colB] != 0) {
+                resultRows[i].emplace_back(colB, tempRow[colB]);
             }
         }
     }
 
-    // Determine maxNNZPerRow for result
+    // Determine maxNNZPerRow for the result matrix
     size_t maxNNZ = 0;
-    for (const auto& rowMap : resultRows) {
-        if (rowMap.size() > maxNNZ) {
-            maxNNZ = rowMap.size();
+    for (const auto& row : resultRows) {
+        if (row.size() > maxNNZ) {
+            maxNNZ = row.size();
         }
     }
     result.maxNNZPerRow = maxNNZ;
 
-    // Initialize result ELLPACK structures
+    // Initialize the result matrix's ELLPACK structures
     result.values.resize(n * maxNNZ, 0);
     result.colIndices.resize(n * maxNNZ, 0);
 
-    // Fill the result ELLPACK structures
+    // Populate the result matrix from the temporary resultRows map
     for (size_t i = 0; i < n; ++i) {
-        const auto& rowMap = resultRows[i];
+        const auto& row = resultRows[i];
         size_t offset = i * maxNNZ;
         size_t k = 0;
 
-        for (const auto& elem : rowMap) {
+        // Optional: Sort the column indices for each row for consistency
+        std::vector<std::pair<size_t, int>> sortedRow(row);
+        std::sort(sortedRow.begin(), sortedRow.end());
+
+        for (const auto& elem : sortedRow) {
+            if (k >= maxNNZ) break; // Safeguard: Prevent overflow in ELLPACK structure
             result.values[offset + k] = elem.second;
             result.colIndices[offset + k] = elem.first;
             ++k;
@@ -723,6 +944,7 @@ multiplyMO(Matrix& matA, Matrix& matB, size_t threadNum)
 
     return result;
 }
+
 
 Matrix 
 multiplySO(Matrix& matA, Matrix& matB) 
@@ -732,34 +954,62 @@ multiplySO(Matrix& matA, Matrix& matB)
     if (!matB.compressed) matB.compress();
 
     size_t n = matA.n;
-    Matrix result(n, DENSE);
+    Matrix result(n, DENSE); // Result will be in ELLPACK format
 
-    // Temporary storage for result rows
-    std::vector<std::unordered_map<size_t, int>> resultRows(n);
+    // Safeguard: Ensure matrices are compatible for multiplication
+    if (matA.n != matB.n) {
+        std::cerr << "Error: Incompatible matrix dimensions for multiplication." << std::endl;
+        return result; // Return an empty result matrix
+    }
 
-    const size_t SIMD_WIDTH = 8;
+    // Safeguard: Ensure csrRowPtr sizes are correct
+    if (matA.csrRowPtr.size() != n + 1 || matB.csrRowPtr.size() != n + 1) {
+        std::cerr << "Error: csrRowPtr size does not match matrix dimensions." << std::endl;
+        return result;
+    }
 
+    // Temporary storage for result rows using vectors instead of unordered_map
+    std::vector<std::vector<std::pair<size_t, int>>> resultRows(n);
+
+    const size_t SIMD_WIDTH = 8; // AVX2 can process 8 integers at a time
+
+    // Iterate over rows of matA
     for (size_t i = 0; i < n; ++i) {
-        auto& rowMap = resultRows[i];
-
         size_t rowStartA = matA.csrRowPtr[i];
         size_t rowEndA = matA.csrRowPtr[i + 1];
 
+        // Temporary accumulation array
+        std::vector<int> tempRow(n, 0);
+        std::vector<size_t> activeCols;
+
+        // Process non-zero elements in row i of matA
         for (size_t idxA = rowStartA; idxA < rowEndA; ++idxA) {
+            // Safeguard: Check if idxA is within bounds
+            if (idxA >= matA.csrValues.size() || idxA >= matA.csrColIdx.size()) {
+                std::cerr << "Error: csrValues or csrColIdx index out of bounds in matA." << std::endl;
+                continue; // Skip to next idxA
+            }
+
             int valA = matA.csrValues[idxA];
             size_t colA = matA.csrColIdx[idxA];
 
+            // Safeguard: Check if colA is a valid row index in matB
+            if (colA >= matB.n) {
+                std::cerr << "Error: Column index out of bounds in matA (colA)." << std::endl;
+                continue; // Skip to next idxA
+            }
+
             size_t rowStartB = matB.csrRowPtr[colA];
             size_t rowEndB = matB.csrRowPtr[colA + 1];
+            size_t nnzB = rowEndB - rowStartB;
 
-            size_t lenB = rowEndB - rowStartB;
             size_t idxB = 0;
 
-            // Process in SIMD_WIDTH chunks
-            while (idxB + SIMD_WIDTH <= lenB) {
-                // Load values and columns from matB
-                __m256i vecValB = _mm256_loadu_si256((__m256i*)&matB.csrValues[rowStartB + idxB]);
-                __m256i vecColB = _mm256_loadu_si256((__m256i*)&matB.csrColIdx[rowStartB + idxB]);
+            // SIMD processing
+            for (; idxB + SIMD_WIDTH <= nnzB; idxB += SIMD_WIDTH) {
+                // Load values and column indices from matB
+                __m256i vecValB = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&matB.csrValues[rowStartB + idxB]));
+                __m256i vecColB = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&matB.csrColIdx[rowStartB + idxB]));
 
                 // Broadcast valA
                 __m256i vecValA = _mm256_set1_epi32(valA);
@@ -767,49 +1017,84 @@ multiplySO(Matrix& matA, Matrix& matB)
                 // Multiply
                 __m256i vecMul = _mm256_mullo_epi32(vecValA, vecValB);
 
-                // Extract results and update rowMap
+                // Store results
                 alignas(32) int cols[SIMD_WIDTH];
                 alignas(32) int vals[SIMD_WIDTH];
-                _mm256_store_si256((__m256i*)cols, vecColB);
-                _mm256_store_si256((__m256i*)vals, vecMul);
+                _mm256_store_si256(reinterpret_cast<__m256i*>(cols), vecColB);
+                _mm256_store_si256(reinterpret_cast<__m256i*>(vals), vecMul);
 
+                // Accumulate results
                 for (size_t l = 0; l < SIMD_WIDTH; ++l) {
-                    rowMap[cols[l]] += vals[l];
+                    size_t colB = static_cast<size_t>(cols[l]);
+                    int val = vals[l];
+                    if (colB >= n) {
+                        std::cerr << "Error: Column index out of bounds in matB (colB) during SIMD." << std::endl;
+                        continue;
+                    }
+                    if (tempRow[colB] == 0) {
+                        activeCols.push_back(colB);
+                    }
+                    tempRow[colB] += val;
                 }
-
-                idxB += SIMD_WIDTH;
             }
 
             // Handle remaining elements
-            for (; idxB < lenB; ++idxB) {
+            for (; idxB < nnzB; ++idxB) {
+                // Safeguard: Check if idxB is within bounds
+                if (rowStartB + idxB >= matB.csrValues.size() || rowStartB + idxB >= matB.csrColIdx.size()) {
+                    std::cerr << "Error: csrValues or csrColIdx index out of bounds in matB." << std::endl;
+                    continue;
+                }
+
                 int valB = matB.csrValues[rowStartB + idxB];
                 size_t colB = matB.csrColIdx[rowStartB + idxB];
 
-                rowMap[colB] += valA * valB;
+                if (colB >= n) {
+                    std::cerr << "Error: Column index out of bounds in matB (colB)." << std::endl;
+                    continue;
+                }
+
+                // Accumulate the multiplication result
+                if (tempRow[colB] == 0) {
+                    activeCols.push_back(colB);
+                }
+                tempRow[colB] += valA * valB;
+            }
+        }
+
+        // Transfer non-zero elements to resultRows
+        for (const auto& colB : activeCols) {
+            if (tempRow[colB] != 0) {
+                resultRows[i].emplace_back(colB, tempRow[colB]);
             }
         }
     }
 
-    // Determine maxNNZPerRow for result
+    // Determine maxNNZPerRow for the result matrix
     size_t maxNNZ = 0;
-    for (const auto& rowMap : resultRows) {
-        if (rowMap.size() > maxNNZ) {
-            maxNNZ = rowMap.size();
+    for (const auto& row : resultRows) {
+        if (row.size() > maxNNZ) {
+            maxNNZ = row.size();
         }
     }
     result.maxNNZPerRow = maxNNZ;
 
-    // Initialize result ELLPACK structures
+    // Initialize the result matrix's ELLPACK structures
     result.values.resize(n * maxNNZ, 0);
     result.colIndices.resize(n * maxNNZ, 0);
 
-    // Fill the result ELLPACK structures
+    // Populate the result matrix from the temporary resultRows map
     for (size_t i = 0; i < n; ++i) {
-        const auto& rowMap = resultRows[i];
+        const auto& row = resultRows[i];
         size_t offset = i * maxNNZ;
         size_t k = 0;
 
-        for (const auto& elem : rowMap) {
+        // Optional: Sort the column indices for each row for consistency
+        std::vector<std::pair<size_t, int>> sortedRow(row);
+        std::sort(sortedRow.begin(), sortedRow.end());
+
+        for (const auto& elem : sortedRow) {
+            if (k >= maxNNZ) break; // Safeguard: Prevent overflow in ELLPACK structure
             result.values[offset + k] = elem.second;
             result.colIndices[offset + k] = elem.first;
             ++k;
@@ -819,90 +1104,171 @@ multiplySO(Matrix& matA, Matrix& matB)
     return result;
 }
 
-Matrix 
-multiplyMSO(Matrix& matA, Matrix& matB, size_t threadNum) 
+Matrix multiplyMSO(Matrix& matA, Matrix& matB, size_t threadNum) 
 {
     // Ensure matrices are compressed
     if (!matA.compressed) matA.compress();
     if (!matB.compressed) matB.compress();
 
     size_t n = matA.n;
-    Matrix result(n, DENSE);
+    Matrix result(n, DENSE); // Result will be in ELLPACK format
 
-    // Temporary storage for result rows
-    std::vector<std::unordered_map<size_t, int>> resultRows(n);
+    // Safeguard: Ensure matrices are compatible for multiplication
+    if (matA.n != matB.n) {
+        std::cerr << "Error: Incompatible matrix dimensions for multiplication." << std::endl;
+        return result; // Return an empty result matrix
+    }
 
-    const size_t SIMD_WIDTH = 8;
+    // Safeguard: Ensure csrRowPtr sizes are correct
+    if (matA.csrRowPtr.size() != n + 1 || matB.csrRowPtr.size() != n + 1) {
+        std::cerr << "Error: csrRowPtr size does not match matrix dimensions." << std::endl;
+        return result;
+    }
 
-    #pragma omp parallel for num_threads(threadNum)
+    // Temporary storage for result rows using vectors instead of unordered_map
+    std::vector<std::vector<std::pair<size_t, int>>> resultRows(n);
+
+    const size_t SIMD_WIDTH = 8; // AVX2 can process 8 integers at a time
+
+    // Initialize local counters for multiplication and addition
+    size_t localMultCount = 0;
+    size_t localAddCount = 0;
+
+    // Parallelize the outer loop over rows using OpenMP with reduction for counters
+    #pragma omp parallel for num_threads(threadNum) reduction(+:localMultCount, localAddCount)
     for (size_t i = 0; i < n; ++i) {
-        auto& rowMap = resultRows[i];
-
         size_t rowStartA = matA.csrRowPtr[i];
         size_t rowEndA = matA.csrRowPtr[i + 1];
 
+        // Temporary accumulation array
+        std::vector<int> tempRow(n, 0);
+        std::vector<size_t> activeCols;
+
+        // Process non-zero elements in row i of matA
         for (size_t idxA = rowStartA; idxA < rowEndA; ++idxA) {
+            // Safeguard: Check if idxA is within bounds
+            if (idxA >= matA.csrValues.size() || idxA >= matA.csrColIdx.size()) {
+                std::cerr << "Error: csrValues or csrColIdx index out of bounds in matA." << std::endl;
+                continue; // Skip to next idxA
+            }
+
             int valA = matA.csrValues[idxA];
             size_t colA = matA.csrColIdx[idxA];
 
+            // Safeguard: Check if colA is a valid row index in matB
+            if (colA >= matB.n) {
+                std::cerr << "Error: Column index out of bounds in matA (colA)." << std::endl;
+                continue; // Skip to next idxA
+            }
+
             size_t rowStartB = matB.csrRowPtr[colA];
             size_t rowEndB = matB.csrRowPtr[colA + 1];
+            size_t nnzB = rowEndB - rowStartB;
 
-            size_t lenB = rowEndB - rowStartB;
             size_t idxB = 0;
 
-            // Process in SIMD_WIDTH chunks
-            while (idxB + SIMD_WIDTH <= lenB) {
-                __m256i vecValB = _mm256_loadu_si256((__m256i*)&matB.csrValues[rowStartB + idxB]);
-                __m256i vecColB = _mm256_loadu_si256((__m256i*)&matB.csrColIdx[rowStartB + idxB]);
+            // SIMD processing
+            for (; idxB + SIMD_WIDTH <= nnzB; idxB += SIMD_WIDTH) {
+                // Load values and column indices from matB
+                __m256i vecValB = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&matB.csrValues[rowStartB + idxB]));
+                __m256i vecColB = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&matB.csrColIdx[rowStartB + idxB]));
 
+                // Broadcast valA
                 __m256i vecValA = _mm256_set1_epi32(valA);
+
+                // Multiply
                 __m256i vecMul = _mm256_mullo_epi32(vecValA, vecValB);
 
+                // Store results
                 alignas(32) int cols[SIMD_WIDTH];
                 alignas(32) int vals[SIMD_WIDTH];
-                _mm256_store_si256((__m256i*)cols, vecColB);
-                _mm256_store_si256((__m256i*)vals, vecMul);
+                _mm256_store_si256(reinterpret_cast<__m256i*>(cols), vecColB);
+                _mm256_store_si256(reinterpret_cast<__m256i*>(vals), vecMul);
 
+                // Accumulate results
                 for (size_t l = 0; l < SIMD_WIDTH; ++l) {
-                    #pragma omp atomic
-                    rowMap[cols[l]] += vals[l];
+                    size_t colB = static_cast<size_t>(cols[l]);
+                    int val = vals[l];
+                    if (colB >= n) {
+                        std::cerr << "Error: Column index out of bounds in matB (colB) during SIMD." << std::endl;
+                        continue;
+                    }
+                    if (tempRow[colB] == 0) {
+                        activeCols.push_back(colB);
+                    }
+                    tempRow[colB] += val;
+                    
+                    // Increment operation counters
+                    localMultCount += 1; // Each SIMD multiply represents SIMD_WIDTH multiplications
+                    localAddCount += 1;  // Each SIMD addition represents SIMD_WIDTH additions
                 }
-
-                idxB += SIMD_WIDTH;
             }
 
             // Handle remaining elements
-            for (; idxB < lenB; ++idxB) {
+            for (; idxB < nnzB; ++idxB) {
+                // Safeguard: Check if idxB is within bounds
+                if (rowStartB + idxB >= matB.csrValues.size() || rowStartB + idxB >= matB.csrColIdx.size()) {
+                    std::cerr << "Error: csrValues or csrColIdx index out of bounds in matB." << std::endl;
+                    continue;
+                }
+
                 int valB = matB.csrValues[rowStartB + idxB];
                 size_t colB = matB.csrColIdx[rowStartB + idxB];
 
-                #pragma omp atomic
-                rowMap[colB] += valA * valB;
+                if (colB >= n) {
+                    std::cerr << "Error: Column index out of bounds in matB (colB)." << std::endl;
+                    continue;
+                }
+
+                // Accumulate the multiplication result
+                if (tempRow[colB] == 0) {
+                    activeCols.push_back(colB);
+                }
+                tempRow[colB] += valA * valB;
+                
+                // Increment operation counters
+                localMultCount += 1;
+                localAddCount += 1;
             }
         }
-    }
 
-    // Determine maxNNZPerRow for result
+        // Transfer non-zero elements to resultRows
+        for (const auto& colB : activeCols) {
+            if (tempRow[colB] != 0) {
+                resultRows[i].emplace_back(colB, tempRow[colB]);
+            }
+        }
+    } // End of parallel region
+
+    // Assign the accumulated counts to the result matrix
+    result.multiplicationCount = localMultCount;
+    result.additionCount = localAddCount;
+
+    // Determine maxNNZPerRow for the result matrix
     size_t maxNNZ = 0;
-    for (const auto& rowMap : resultRows) {
-        if (rowMap.size() > maxNNZ) {
-            maxNNZ = rowMap.size();
+    for (const auto& row : resultRows) {
+        if (row.size() > maxNNZ) {
+            maxNNZ = row.size();
         }
     }
     result.maxNNZPerRow = maxNNZ;
 
-    // Initialize result ELLPACK structures
+    // Initialize the result matrix's ELLPACK structures
     result.values.resize(n * maxNNZ, 0);
     result.colIndices.resize(n * maxNNZ, 0);
 
-    // Fill the result ELLPACK structures
+    // Populate the result matrix from the temporary resultRows map
     for (size_t i = 0; i < n; ++i) {
-        const auto& rowMap = resultRows[i];
+        const auto& row = resultRows[i];
         size_t offset = i * maxNNZ;
         size_t k = 0;
 
-        for (const auto& elem : rowMap) {
+        // Optional: Sort the column indices for each row for consistency
+        std::vector<std::pair<size_t, int>> sortedRow(row);
+        std::sort(sortedRow.begin(), sortedRow.end());
+
+        for (const auto& elem : sortedRow) {
+            if (k >= maxNNZ) break; // Safeguard: Prevent overflow in ELLPACK structure
             result.values[offset + k] = elem.second;
             result.colIndices[offset + k] = elem.first;
             ++k;
