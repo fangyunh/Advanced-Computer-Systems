@@ -1,0 +1,43 @@
+fio: this platform does not support process shared mutexes, forcing use of threads. Use the 'thread' option to get rid of this warning.
+test: (g=0): rw=randrw, bs=(R) 128KiB-128KiB, (W) 128KiB-128KiB, (T) 128KiB-128KiB, ioengine=windowsaio, iodepth=512
+fio-3.38
+Starting 1 thread
+
+test: (groupid=0, jobs=1): err= 0: pid=20732: Sat Oct 12 20:26:44 2024
+  read: IOPS=11.9k, BW=1482MiB/s (1553MB/s)(711MiB/480msec)
+    slat (usec): min=3, max=688, avg= 7.01, stdev=10.87
+    clat (usec): min=310, max=115056, avg=9833.11, stdev=21680.03
+     lat (usec): min=316, max=115061, avg=9840.12, stdev=21680.56
+    clat percentiles (usec):
+     |  1.00th=[   490],  5.00th=[   627], 10.00th=[   734], 20.00th=[   857],
+     | 30.00th=[   947], 40.00th=[  1029], 50.00th=[  1123], 60.00th=[  1254],
+     | 70.00th=[  3294], 80.00th=[ 15926], 90.00th=[ 23725], 95.00th=[ 62653],
+     | 99.00th=[109577], 99.50th=[111674], 99.90th=[113771], 99.95th=[114820],
+     | 99.99th=[114820]
+   bw (  MiB/s): min= 1419, max= 1419, per=95.81%, avg=1419.41, stdev= 0.00, samples=1
+   iops        : min=11355, max=11355, avg=11355.00, stdev= 0.00, samples=1
+  write: IOPS=5214, BW=652MiB/s (683MB/s)(313MiB/480msec); 0 zone resets
+    slat (nsec): min=5634, max=81262, avg=10861.75, stdev=5817.47
+    clat (usec): min=846, max=133060, avg=75164.58, stdev=22514.19
+     lat (usec): min=857, max=133068, avg=75175.44, stdev=22512.36
+    clat percentiles (msec):
+     |  1.00th=[    7],  5.00th=[   21], 10.00th=[   39], 20.00th=[   62],
+     | 30.00th=[   75], 40.00th=[   80], 50.00th=[   84], 60.00th=[   86],
+     | 70.00th=[   89], 80.00th=[   90], 90.00th=[   92], 95.00th=[   96],
+     | 99.00th=[  109], 99.50th=[  120], 99.90th=[  131], 99.95th=[  133],
+     | 99.99th=[  133]
+   bw (  KiB/s): min=639489, max=639489, per=95.81%, avg=639489.00, stdev= 0.00, samples=1
+   iops        : min= 4996, max= 4996, avg=4996.00, stdev= 0.00, samples=1
+  lat (usec)   : 500=0.84%, 750=6.95%, 1000=17.50%
+  lat (msec)   : 2=21.34%, 4=4.52%, 10=3.63%, 20=6.98%, 50=7.20%
+  lat (msec)   : 100=28.37%, 250=2.67%
+  cpu          : usr=0.00%, sys=0.00%, ctx=0, majf=0, minf=0
+  IO depths    : 1=0.1%, 2=0.1%, 4=0.1%, 8=0.1%, 16=0.2%, 32=0.4%, >=64=99.2%
+     submit    : 0=0.0%, 4=100.0%, 8=0.0%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.0%
+     complete  : 0=0.0%, 4=99.9%, 8=0.1%, 16=0.0%, 32=0.0%, 64=0.0%, >=64=0.1%
+     issued rwts: total=5689,2503,0,0 short=0,0,0,0 dropped=0,0,0,0
+     latency   : target=0, window=0, percentile=100.00%, depth=512
+
+Run status group 0 (all jobs):
+   READ: bw=1482MiB/s (1553MB/s), 1482MiB/s-1482MiB/s (1553MB/s-1553MB/s), io=711MiB (746MB), run=480-480msec
+  WRITE: bw=652MiB/s (683MB/s), 652MiB/s-652MiB/s (683MB/s-683MB/s), io=313MiB (328MB), run=480-480msec
