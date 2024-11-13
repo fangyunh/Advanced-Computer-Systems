@@ -10,6 +10,8 @@ query.hh and .cc: The Query mechanism with and without SIMD
 
 vanilla_search.hh and .cc: Vanilla baseline we used to compare with Query
 
+The raw data "Column.txt" is not included in the folder. Install it to run the program correctly.
+
 ## How to Run the Test
 
 1. Makefile: use command "**make**" to generate executable file. "make clean" to clean compiled file. Run commands below: {} includes all options for query (SIMD) and vanilla search. -v for vanilla method, -q for query (SIMD), and no options for query (without SIMD)
