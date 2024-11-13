@@ -10,7 +10,7 @@ query.hh and .cc: The Query mechanism with and without SIMD
 
 vanilla_search.hh and .cc: Vanilla baseline we used to compare with Query
 
-The raw data "Column.txt" is not included in the folder. Install it to run the program correctly.
+The raw data "Column.txt" is not included in the folder. Install it from the link from Project 4 in Projects.pdf to run the program correctly.
 
 ## How to Run the Test
 
